@@ -14,6 +14,7 @@ import (
 	"go-testing/server"
 	"log"
 	"net"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,78 +35,89 @@ func main() {
 	fmt.Println("welcome go-testing!!!")
 	flag.Parse()
 
-	addr := *addr
-	log.Printf("连接到 %s", addr)
+	if *addr == "" {
+		fmt.Printf("示例: go run main.go -addr 127.0.0.1:5280 -conn 1 \n")
+
+		flag.Usage()
+
+		return
+	}
+
+	runtime.GOMAXPROCS(runtime.NumCPU() - 1)
 
 	go server.StartHttpSrv(*port)
 
 	wg := new(sync.WaitGroup)
 	wg.Add(*connections)
 	for i := 0; i < *connections; i++ {
-		go func() {
-			defer wg.Done()
-			conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
-			if err != nil {
-				log.Printf("连接服务器错误: %v", err)
-				return
-			}
-
-			userId := idMaker.Gen()
-			if _, ok := server.Connections.Load(userId); !ok {
-				userId = idMaker.Gen()
-			}
-			m := md5.New()
-			m.Write([]byte(userId))
-			password := hex.EncodeToString(m.Sum(nil))
-
-			client := NewTcpClint(conn, userId, password, *resource)
-
-			server.Connections.Store(userId, client)
-
-			msg := client.authMsg()
-			_, err = pbutil.WriteDelimited(client.conn, &msg)
-			if err != nil {
-				log.Printf("发送认证包错误: %v", err)
-				return
-			}
-			log.Printf("发送认证包数据: %s \n", msg.String())
-			authAck := pb.IMMessage{}
-			_, err = pbutil.ReadDelimited(client.r, &authAck)
-			if err != nil {
-				log.Printf("读取认证包错误: %v", err)
-				return
-			}
-			log.Printf("接收认证包响应数据: %s \n", authAck.String())
-			if authAck.GetAuthMessageAckBody() == nil {
-				log.Println("认证异常!!!")
-				return
-			}
-			if authAck.GetAuthMessageAckBody().Code == 10000 {
-				client.logined = true
-			} else {
-				log.Printf("login error code: %d, msg: %s \n", authAck.GetAuthMessageAckBody().Code,
-					authAck.GetAuthMessageAckBody().GetMessage())
-				return
-			}
-
-			server.OnlineUsers.Store(client.userId, client)
-
-			if *mode == "chat" {
-				go client.chat()
-			}
-
-			go client.send()
-			go client.recieve()
-
-			select {
-			case <-client.quit:
-				server.OnlineUsers.Delete(client.userId)
-				client.Close()
-				log.Println("退出")
-			}
-		}()
+		go connect(wg)
 	}
 	wg.Wait()
+}
+
+func connect(wg *sync.WaitGroup) {
+	defer wg.Done()
+	log.Printf("连接到 %s", *addr)
+
+	conn, err := net.DialTimeout("tcp", *addr, 10*time.Second)
+	if err != nil {
+		log.Printf("连接服务器错误: %v \n", err)
+		return
+	}
+
+	userId := idMaker.Gen()
+	if _, ok := server.Connections.Load(userId); !ok {
+		userId = idMaker.Gen()
+	}
+	m := md5.New()
+	m.Write([]byte(userId))
+	password := hex.EncodeToString(m.Sum(nil))
+
+	client := NewTcpClint(conn, userId, password, *resource)
+
+	server.Connections.Store(userId, client)
+
+	msg := client.authMsg()
+	_, err = pbutil.WriteDelimited(client.conn, &msg)
+	if err != nil {
+		log.Printf("发送认证包错误: %v \n", err)
+		return
+	}
+	log.Printf("发送认证包数据: %s \n", msg.String())
+	authAck := pb.IMMessage{}
+	_, err = pbutil.ReadDelimited(client.r, &authAck)
+	if err != nil {
+		log.Printf("读取认证包错误: %v \n", err)
+		return
+	}
+	log.Printf("接收认证包响应数据: %s \n", authAck.String())
+	if authAck.GetAuthMessageAckBody() == nil {
+		log.Println("认证异常!!!")
+		return
+	}
+	if authAck.GetAuthMessageAckBody().Code == 10000 {
+		client.logined = true
+	} else {
+		log.Printf("login error code: %d, msg: %s \n", authAck.GetAuthMessageAckBody().Code,
+			authAck.GetAuthMessageAckBody().GetMessage())
+		return
+	}
+
+	server.OnlineUsers.Store(client.userId, client)
+
+	if *mode == "chat" {
+		go client.chat()
+	}
+
+	go client.send()
+	go client.recieve()
+
+	select {
+	case <-client.quit:
+		server.OnlineUsers.Delete(client.userId)
+		client.Close()
+		log.Println("退出")
+	}
 }
 
 func (c *TcpClient) send() {
