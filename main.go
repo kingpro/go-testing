@@ -45,6 +45,7 @@ func main() {
 
 	runtime.GOMAXPROCS(runtime.NumCPU() - 1)
 
+	log.Printf("连接到 %s", *addr)
 	go server.StartHttpSrv(*port)
 
 	wg := new(sync.WaitGroup)
@@ -57,7 +58,6 @@ func main() {
 
 func connect(wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Printf("连接到 %s", *addr)
 
 	conn, err := net.DialTimeout("tcp", *addr, 10*time.Second)
 	if err != nil {
