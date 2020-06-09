@@ -8,8 +8,10 @@ import (
 )
 
 var (
-	OnlineUsers sync.Map
-	Connections sync.Map
+	OnlineUsers        sync.Map
+	Connections        sync.Map
+	MessageSentCounter int64
+	MessageAckCounter  int64
 )
 
 func StartHttpSrv(port string) {
@@ -29,7 +31,7 @@ func StartHttpSrv(port string) {
 
 func online(c *gin.Context) {
 	logNum, connNum := OnlineNum()
-	c.JSON(http.StatusOK, gin.H{"conns": connNum, "authed": logNum})
+	c.JSON(http.StatusOK, gin.H{"conns": connNum, "authed": logNum, "sent": MessageSentCounter, "ack": MessageAckCounter})
 }
 
 func OnlineNum() (int, int) {

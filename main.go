@@ -15,6 +15,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -62,11 +63,18 @@ func main() {
 			server.Connections.Store(userId, client)
 
 			msg := client.authMsg()
-			pbutil.WriteDelimited(client.conn, &msg)
-
+			_, err = pbutil.WriteDelimited(client.conn, &msg)
+			if err != nil {
+				log.Printf("发送认证包错误: %v", err)
+				return
+			}
 			log.Printf("发送认证包数据: %s \n", msg.String())
 			authAck := pb.IMMessage{}
-			pbutil.ReadDelimited(client.r, &authAck)
+			_, err = pbutil.ReadDelimited(client.r, &authAck)
+			if err != nil {
+				log.Printf("读取认证包错误: %v", err)
+				return
+			}
 			log.Printf("接收认证包响应数据: %s \n", authAck.String())
 			if authAck.GetAuthMessageAckBody() == nil {
 				log.Println("认证异常!!!")
@@ -115,7 +123,12 @@ func (c *TcpClient) send() {
 			} else {
 				msg = c.randomChatMsg(message, to)
 			}
-			pbutil.WriteDelimited(c.conn, &msg)
+			_, err := pbutil.WriteDelimited(c.conn, &msg)
+			if err != nil {
+				log.Printf("发送消息包错误: %v", err)
+				c.quit <- true
+			}
+			atomic.AddInt64(&server.MessageSentCounter, 1)
 		case <-beatDelay.C:
 			pingMsg := c.pingMsg()
 			log.Printf("发送心跳包数据: %s \n", pingMsg.String())
@@ -212,6 +225,9 @@ func (c *TcpClient) recieve() {
 		switch resp.DataType {
 		case pb.DataType_IMPongMessageType:
 			log.Printf("接收心跳包响应数据: %s \n", resp.String())
+		case pb.DataType_IMChatMessageACKType:
+			atomic.AddInt64(&server.MessageAckCounter, 1)
+			log.Printf("接收消息包ACK数据: %s \n", resp.String())
 		default:
 			log.Printf("接收响应包数据: %s \n", resp.String())
 		}
@@ -274,6 +290,7 @@ func (c *TcpClient) RemoteAddr() net.Addr {
 func (c *TcpClient) Close() error {
 	c.logined = false
 	close(c.quit)
+	close(c.message)
 	return c.conn.Close()
 }
 
