@@ -221,7 +221,12 @@ func (c *TcpClient) pingMsg() pb.IMMessage {
 func (c *TcpClient) recieve() {
 	for c.logined {
 		resp := pb.IMMessage{}
-		pbutil.ReadDelimited(c.r, &resp)
+		_, err := pbutil.ReadDelimited(c.r, &resp)
+		if err != nil {
+			log.Printf("接收响应数据: %s \n", err)
+			c.quit <- true
+			return
+		}
 		switch resp.DataType {
 		case pb.DataType_IMPongMessageType:
 			log.Printf("接收心跳包响应数据: %s \n", resp.String())
