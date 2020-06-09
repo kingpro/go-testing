@@ -1,0 +1,519 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package = "../pb";
+
+
+enum DataType {
+    IMAuthMessageType       = 0;    //认证消息
+    IMAuthMessageAckType    = 1;    //认证回执消息
+    IMChatMessageType       = 2;    //聊天消息
+    IMChatMessageACKType    = 3;    //聊天服务器回执消息
+    IMChatMessageToACKType  = 4;    //聊天客户端回执消息
+    IMPingMessageType       = 5;    //Ping消息
+    IMPongMessageType       = 6;    //Pong消息
+    IMOffLineMessageType    = 7;    //下线消息
+    IMServerMessageType     = 8;    //系统通知消息
+}
+
+message IMMessage {
+    DataType data_type = 1; //消息类型
+    //oneof表示多个当中有一个被赋值
+    oneof dataBody {
+        //下面三个类型同一时刻只能出现一个
+        IMChatMessage chatMessageBody               = 2;
+        IMChatMessageACK chatMessageAckBody         = 3;
+        IMChatMessageToACK chatMessageToACKBody     = 4;
+        IMAuthMessage authMessageBody               = 5;
+        IMAuthMessageACK authMessageAckBody         = 6;
+        IMPingMessage pingMessageBody               = 7;
+        IMPongMessage pongMessageBody               = 8;
+        IMOffLineMessage offLineMessageBody         = 9;
+        IMServerMessage serverMessageBody           = 10;
+    }
+}
+//用户聊天类型
+enum ChatType{
+    SingleChat  = 0;    //单聊消息
+    GroupChat   = 1;    //群聊消息
+    OpenChat    = 2;    //开放消息
+}
+//下线消息
+message IMOffLineMessage {
+    string msg_id   = 1;    //消息ID
+    string user_id  = 2;    //用户ID
+    string source   = 3;    //来源信息(ANDROID/IOS/WEB/IOT/PC)
+}
+//Ping消息
+message IMPingMessage {
+    string msg_id   = 1;    //消息ID
+    string user_id  = 2;    //用户ID
+}
+//Pong消息
+message IMPongMessage {
+    string msg_id   = 1;    //消息ID
+    string user_id  = 2;    //用户ID
+}
+//授权消息
+message IMAuthMessage {
+    string msg_id   = 1;    //消息ID(前端消息ID)
+    string user_id  = 2;    //用户ID
+    string token    = 3;    //登录Token
+    string source   = 4;    //来源信息(ANDROID/IOS/WEB/IOT/PC)
+}
+//授权消息回执
+message IMAuthMessageACK {
+    string msg_id       = 1;    //回执消息ID
+    string user_id      = 2;    //用户ID
+    int64 code          = 3;    //状态码
+    string message      = 4;    //消息提示
+    string ack_msg_id   = 5;    //消息ID(前端消息ID)
+}
+//服务器ACK消息
+message IMChatMessageACK {
+    string msg_id       = 1;    //回执消息ID
+    string ack_msg_id   = 2;    //消息ID(前端消息ID)
+    string s_msg_id     = 3;    //消息ID(服务消息ID)
+    ChatType c_type     = 4;    //聊天类型
+}
+
+enum MessageType {
+    //基础聊天类消息
+    TextMessageType     = 0;    //文本消息
+    ImageMessageType    = 1;    //图片消息
+    VideoMessageType    = 2;    //视频消息
+    GEOMessageType      = 3;    //地理定位
+    VoiceMessageType    = 4;    //音频消息
+    FileMessageType     = 5;    //文件消息
+    CardMessageType     = 6;    //名片消息
+    SharkUrlType        = 7;    //分享链接
+    BackMessageType     = 8;    //撤回消息
+    DelMessageType      = 9;    //删除消息
+    AtMessageType       = 10;   //@用户消息(该消息为特殊消息，前后端一起定义)
+}
+
+//聊天消息
+message IMChatMessage {
+
+    string msg_id       = 1;    //消息ID(前端消息ID)
+    string from         = 2;    //发送者(用户ID)
+    string nick         = 3;    //发送者昵称
+    string to           = 4;    //接受者(用户ID/群组ID)
+    //消息体(前端自定义,除特殊消息外服务端不进行处理)
+    oneof body{
+        TextMessage textMessage     = 5;
+        ImageMessage imageMessage   = 6;
+        VideoMessage videoMessage   = 7;
+        GEOMessage geoMessage       = 8;
+        VoiceMessage voiceMessage   = 9;
+        FileMessage fileMessage     = 10;
+        CardMessage cardMessage     = 11;
+        SharkUrl sharkUrl           = 12;
+        BackDelMessage backDelMessage     = 13;
+        AtMessage atMessage         = 14;
+    }
+    ChatType c_type     = 16;    //聊天类型
+    MessageType m_type  = 17;    //消息类型
+    string icon         = 18;    //发送者头像
+    bool is_ack         = 19;    //是否需要回执(true/false,该值必传)
+    bool is_encry       = 20;   //是否加密(true/false,默认false)
+    int64 snapchat      = 21;   //阅后即焚时间戳(默认0)
+    int64 send_time     = 22;   //发送时间
+    string s_msg_id     = 23;   //消息ID(服务消息ID)
+    string to_source    = 24;   //发送的设备(服务端使用，前端不用传递和使用)
+    string to_uid       = 25;   //发送的用户(服务端使用，前端不用传递和使用)
+}
+//文本消息
+message TextMessage{
+    string content      = 1;    //文本内容
+    string ext          = 2;    //扩展字段
+}
+//图片消息
+message ImageMessage{
+    int32 height        = 1;    //图片高度
+    int32 with          = 2;    //图片宽度
+    int64 size          = 3;    //图片大小
+    string name         = 4;    //文件名字
+    string ext          = 5;    //扩展字段
+}
+//视频消息
+message VideoMessage{
+    int64 length        = 1;    //视频长度
+    string name         = 2;    //视频名称
+    string c_img        = 3;    //视频封面图
+    int32 c_height      = 4;    //视频封面图高度
+    int32 c_with        = 5;    //视频封面图宽度
+    string ext          = 6;    //扩展字段
+}
+//地理定位
+message GEOMessage{
+    string lng          = 1;    //维度
+    string lat          = 2;    //精度
+    string name         = 3;    //地理名称
+    string c_img        = 4;    //地理封面图
+    int32 c_height      = 5;    //地理封面图高度
+    int32 c_with        = 6;    //地理封面图宽度
+    string ext          = 7;    //扩展字段
+}
+//音频消息
+message VoiceMessage{
+    int32 length        = 1;    //音频长度
+    string name         = 2;    //音频名称
+    string ext          = 3;    //扩展字段
+}
+//文件消息
+message FileMessage{
+    int64 size          = 1;    //文件大小
+    string name         = 2;    //文件名称
+    string ext          = 3;    //扩展字段
+}
+//名片消息
+message CardMessage{
+    string url          = 1;    //名片访问地址
+    string name         = 2;    //名片名称
+    string ext          = 3;    //扩展字段
+}
+//分享链接
+message SharkUrl{
+    string url          = 1;    //访问地址
+    string title        = 2;    //标题
+    string logo         = 3;    //地址logo
+    string ext          = 4;    //扩展字段
+}
+//撤回消息、删除消息
+message BackDelMessage{
+    string s_msg_id     = 1;    //撤回的消息服务端ID
+    string ext          = 2;    //扩展字段
+}
+//@用户消息(该消息为特殊消息，前后端一起定义)
+message AtMessage{
+    string content      = 1;    //内容
+    repeated AtInfo at_info = 2;    //@人信息
+    string ext          = 3;    //扩展字段
+}
+message AtInfo{
+    string u_id         = 1;    //用户ID
+    string u_nick       = 2;    //用户昵称
+}
+
+
+enum ServerMsgType {
+    //系统通知类消息
+    NoticeMessageType                   = 0;    //公告消息  该消息只转发给平台所有用户
+    RegisterWelcomeMessageType          = 1;    //注册欢迎语 转发给刚注册的某一个人
+    SynchroMessageType                  = 2;    //同步类消息
+    ChatMessageType                     = 3;    //服务端代发聊天消息
+    //好友通知类消息
+    FriendInviteMessageType             = 101;   //邀请好友  该消息只转发给接收申请的用户
+    FriendConfirmMessageType            = 102;   //好友确认  该消息只转发给发起申请的用户
+    FriendDelMessageType                = 103;   //好友删除  该消息只转发给被删除的好友用户
+    FriendSayMessageType                = 104;   //好友打招呼消息  该消息转发给好友双方
+    //群组通知类消息
+    CreateGroupMessageType              = 200;   //创建群组  该消息只转发给群主和所有邀请的群成员
+    JoinReqGroupMessageType             = 201;   //进群申请  该消息体只转发给群主及群管理员
+    JoinConfirmGroupMessageType         = 202;   //进群确认/进群通知  该消息体如果拒绝状态只转发给发送申请加入群聊的用户，如果同意该消息会转发给所有在线的群成员
+    OutGroupMessageType                 = 203;   //退群消息  该消息只转发给在线的所有群成员
+    KickGroupMessageType                = 204;   //踢人消息  该消息只转发给在线的所有群成员
+    DelGroupMessageType                 = 205;   //解散群组  该消息只转发给在线的所有群成员
+    TransferOwnerMessageType            = 206;   //转让群主  该消息只转发给在线的所有群成员
+    EstoppelGroupMessageType            = 207;   //群组禁言/解除禁言  该消息只转发给在线的所有群成员,该消息在群组禁言如果发送此消息会转发给某一个人
+    NoticeGroupMessageType              = 208;   //变更群组公告  该消息只转发给在线的所有群成员
+    LockAndNoGroupMessageType           = 209;   //锁定/解锁群组  该消息只转发给在线的所有群成员
+    NameGroupMessageType                = 210;   //变更群名称  该消息只转发给在线的所有群成员
+    AdminGroupMessageType               = 211;   //变更管理员 该消息只转发给在线的所有群成员
+    NoChatGroupMessageType              = 212;   //是否禁止私聊  该消息只转发给在线的所有群成员
+    JoinVerifyGroupMessageType          = 213;   //是否进群验证  该消息只转发给在线的所有群成员
+    InviteJoinRepGroupMessageType       = 214;   //邀请进群申请  该消息发送给群管理员
+    InviteConfirmGroupMessageType       = 215;   //邀请进群确认/邀请进群通知  该消息只转发给在线的所有群成员
+    MemberNoGroupMessageType            = 216;   //用户不在群内 该消息转发给发送消息的用户
+    NullGroupMessageType                = 217;   //群组不存在 该消息转发给发送消息的用户
+    GroupNoChatMessageType              = 218;   //群内以开启禁言 该消息转发给发送消息的用户
+    //系统单人命令消息
+    UserForcedOfflineType               = 500;   //强制下线消息  发送给某个用户
+}
+
+message IMServerMessage {
+ 
+    string from         = 1;    //发送者(用户ID)
+    string nick         = 2;    //发送者昵称
+    string icon         = 3;    //发送者头像
+    string to           = 4;    //接受者用户ID
+    ServerMsgType s_msg_type  = 5;    //消息类型
+    int64 send_time     = 6;    //发送时间
+    string s_msg_id     = 7;    //消息ID(服务消息ID)
+    oneof messageBody{
+        //群组通知类消息
+        CreateGroupMessage createGroupMessage           = 8;   //创建群组  该消息只转发给群主和所有邀请的群成员
+        JoinReqGroupMessage joinReqGroupMessage         = 9;   //进群申请  该消息体只转发给群主及群管理员
+        JoinConfirmGroupMessage joinConfirmGroupMessage = 10;   //进群确认/进群通知  该消息体如果拒绝状态只转发给发送申请加入群聊的用户，如果同意该消息会转发给所有在线的群成员
+        OutGroupMessage outGroupMessage                 = 11;   //退群消息  该消息只转发给在线的所有群成员
+        KickGroupMessage kickGroupMessage               = 12;   //踢人消息  该消息只转发给在线的所有群成员
+        DelGroupMessage delGroupMessage                 = 13;   //解散群组  该消息只转发给在线的所有群成员
+        TransferOwnerMessage transferOwnerMessage       = 14;   //转让群主  该消息只转发给在线的所有群成员
+        GroupStatusMessage groupStatusMessage           = 15;   //是否群组禁言/解除禁言、锁定/解锁群组、禁止私聊、进群验证  该消息只转发给在线的所有群成员,该消息在群组禁言如果发送此消息会转发给某一个人
+        NoticeGroupMessage noticeGroupMessage           = 16;   //变更群组公告  该消息只转发给在线的所有群成员
+        NameGroupMessage nameGroupMessage               = 17;   //变更群名称  该消息只转发给在线的所有群成员
+        AdminGroupMessage adminGroupMessage             = 18;   //变更管理员 该消息只转发给在线的所有群成员
+        InviteJoinRepGroupMessage inviteJoinRepGroupMessage = 19;   //邀请进群申请  该消息发送给群管理员
+        InviteConfirmGroupMessage inviteConfirmGroupMessage = 20;   //邀请进群确认/邀请进群通知  该消息只转发给在线的所有群成员
+        GroupTipChatMessage groupTipChatMessage       = 21;   //用户不在群内、群组不存在、群组以开启禁言 该消息转发给发送消息的用户
+        //好友通知类消息
+        FriendInviteMessage friendInviteMessage         = 24;   //邀请好友  该消息只转发给接收申请的用户
+        FriendConfirmMessage friendConfirmMessage       = 25;   //好友确认  该消息只转发给发起申请的用户
+        FriendDelMessage friendDelMessage               = 26;   //好友删除  该消息只转发给被删除的好友用户
+        FriendSayMessage friendSayMessage               = 27;   //好友打招呼消息  该消息转发给好友双方
+        //系统类消息
+        NoticeMessage noticeMessage                     = 28;   //公告消息  该消息只转发给平台所有用户
+        UserForcedOffline userForcedOffline             = 29;   //强制下线消息  发送给某个用户
+        SynchroMessage synchroMessage                   = 30;   //同步类操作 发送给某个用户
+        RegisterWelcomeMessage registerWelcomeMessage   = 31;   //注册欢迎语
+        ServerChatMessage serverChatMessage             = 32;  //系统代发聊天消息
+    }
+    string to_source    = 33;   //接受者用户设备
+}
+//客户端ACK消息
+message IMChatMessageToACK {
+    string msg_id       = 1;    //回执消息ID
+    string ack_msg_id   = 2;    //消息ID(前端消息ID)
+    string s_msg_id     = 3;    //消息ID(服务消息ID)
+    string from         = 4;    //发送者(转发消息：源消息接受者用户ID)
+    string to           = 5;    //接受者(转发消息：源消息发送者用户ID)
+    ChatType c_type     = 6;    //聊天类型
+    string to_source    = 7;   //接受者用户设备
+}
+//聊天消息
+message ServerChatMessage{
+    string from_uid     = 1;    //发送者ID
+    string from_nick    = 2;    //发送者昵称
+    string from_icon    = 3;    //发送者头像
+    string to_uid       = 4;    //接受者ID
+    string content      = 5;    //发送内容
+    ChatType c_type     = 6;    //聊天类型
+    MessageType m_Type  = 7;    //消息类型
+    int32 with          = 8;    //图片宽
+    int32 high          = 9;    //图片高
+}
+//创建群组消息
+message CreateGroupMessage {
+    string uid          = 1;    //创建群用户ID
+    string nick         = 2;    //创建群用户昵称
+    string gid          = 3;    //群聊ID
+    string g_name       = 4;    //群组名称
+    string g_header     = 5;    //群头像
+    repeated UserInfo invite_uid   = 6;   //邀请的用户信息
+    GroupInfo group_info= 7;    //群组基本配置信息
+}
+//进群申请消息
+message JoinReqGroupMessage{
+    string uid          = 1;    //申请进群的用户ID
+    string nick         = 2;    //申请进群的用户昵称
+    string gid          = 3;    //申请进入的群聊ID
+    string g_name       = 4;    //群组名称
+    string reason       = 5;    //申请进群理由
+}
+//进群确认/进群通知
+message JoinConfirmGroupMessage{
+    string uid          = 1;    //申请进群的用户ID
+    string nick         = 2;    //申请进群的用户昵称
+    string gid          = 3;    //申请进入的群聊ID
+    string g_name       = 4;    //群组名称
+    int32 status        = 5;    //是否同意进群 1:同意进群 2:拒绝进群
+    string reason       = 6;    //同意或者拒绝加入群聊理由
+}
+//退群消息
+message OutGroupMessage{
+    string uid          = 1;    //申请退群用户ID
+    string nick         = 2;    //申请退群用户昵称
+    string gid          = 3;    //申请退出的群聊ID
+    string reason       = 4;    //退出理由
+}
+//踢人消息
+message KickGroupMessage{
+    string uid          = 1;    //移除群聊的用户ID
+    string nick         = 2;    //移除群聊的用户昵称
+    string operate_uid  = 3;    //操作的用户ID
+    string operate_nick = 4;    //操作的用户昵称
+    string gid          = 5;    //群聊ID
+    string reason       = 6;    //移除理由
+}
+//解散群组
+message DelGroupMessage{
+    string uid          = 1;    //解散群聊的用户ID
+    string nick         = 2;    //解散群聊的用户昵称
+    string gid          = 3;    //群聊ID
+    string g_name       = 4;    //群组名称
+    string reason       = 5;    //解散群组理由
+}
+//转让群主
+message TransferOwnerMessage{
+    string uid          = 1;    //新群主用户ID
+    string nick         = 2;    //新群主用户昵称
+    string gid          = 3;    //群聊ID
+    string reason       = 4;    //转让理由
+}
+//是否群组禁言/解除禁言、锁定/解锁群组、禁止私聊、进群验证
+message GroupStatusMessage{
+    string uid          = 1;    //禁言或解除禁言的用户ID
+    string nick         = 2;    //禁言或解除禁言的用户昵称
+    string gid          = 3;    //群聊ID
+    int32 status        = 4;    //是否禁言 1:开启 2:关闭
+    string reason       = 5;    //开启或关闭禁言理由
+}
+//变更群组公告
+message NoticeGroupMessage{
+    string uid          = 1;    //发布群公告的用户ID
+    string nick         = 2;    //发布群公告的用户昵称
+    string gid          = 3;    //群聊ID
+    string notice       = 4;    //群组公告
+}
+//变更群名称
+message NameGroupMessage{
+    string uid          = 1;    //改变群名称的用户ID
+    string nick         = 2;    //改变群名称的用户昵称
+    string gid          = 3;    //群聊ID
+    string g_name       = 4;    //新的群名称
+}
+//变更管理员
+message AdminGroupMessage{
+    string uid          = 1;    //增加或减少的管理员用户ID
+    string nick         = 2;    //增加或减少的管理员用户昵称
+    string operate_uid  = 3;    //操作的用户ID
+    string operate_nick = 4;    //操作的用户昵称
+    string gid          = 5;    //群组ID
+    int32 type          = 6;    //增加或删除操作类型 1:增加 2:减少
+    string reason       = 7;    //操作理由
+}
+//邀请进群申请
+message InviteJoinRepGroupMessage{
+    string uid          = 1;    //邀请的用户ID
+    string nick         = 2;    //邀请的用户昵称
+    repeated UserInfo invite_uid    = 3;    //被邀请的用户信息
+    string gid          = 4;    //群聊ID
+    string g_name       = 5;    //群名称
+    string reason       = 6;    //邀请进群理由
+}
+//邀请进群确认/邀请进群通知
+message InviteConfirmGroupMessage{
+    string uid          = 1;    //邀请的用户ID
+    string nick         = 2;    //邀请的用户昵称
+    repeated UserInfo invite_uid    = 3;    //被邀请的用户信息
+    string confirm_uid  = 4;    //确认的用户ID
+    string confirm_nick = 5;    //确认的用户昵称
+    string gid          = 6;    //群聊ID
+    string g_name       = 7;    //群名称
+    string reason       = 8;    //邀请进群理由
+    int32 status        = 9;    //确认状态 1:同意进群 2:拒绝进群
+    int32 type          = 10;   //加群方式 1:扫码进群 2:邀请进群
+}
+//用户不在群内、群组不存在、群组以开启禁言
+message GroupTipChatMessage{
+    string gid          = 1;    //群组ID
+}
+//好友通知类消息
+//邀请好友
+message FriendInviteMessage{
+    string uid          = 1;    //发起申请的用户ID
+    string f_uid        = 2;    //好友用户ID
+    string f_nick       = 3;    //好友用户昵称
+    string f_header     = 4;    //好友用户头像
+    string reason       = 5;    //申请成员好友理由
+}
+//好友确认好友确认
+message FriendConfirmMessage {
+    string uid          = 1;    //发起确认的用户ID
+    string nick         = 2;    //发起确认的好友昵称
+    string avatar_file_Name = 3;    //好友用户头像
+    string whatsUp      = 4;    //个性签名
+    string type         = 5;    //添加方式 1:扫码添加 2:搜索添加
+    string main         = 6;    //用户邮箱
+    int32 sex           = 7;    //用户性别 0:保密 1:男 2:女,
+    int32 live_status   = 8;    //在线状态 1:在线 2:离线
+    string uuid         = 9;    //用户UUID
+    string f_uid        = 10;   //发起申请好友的用户ID
+    int32 status        = 11;   //是否同意添加好友 1:同意添加好友 2:拒绝添加好友
+    string reason       = 12;   //同意或者拒绝添加的理由
+}
+//好友打招呼消息
+message FriendSayMessage{
+    string u_id         = 1;    //用户ID
+    string u_icon       = 2;    //用户头像
+    string u_nick       = 3;    //用户昵称
+    string f_id         = 4;    //好友用户ID
+    string f_icon       = 5;    //好友用户头像
+    string f_nick       = 6;    //好友用户昵称
+    string content      = 7;    //打招呼内容
+}
+//好友删除
+message FriendDelMessage{
+    string uid          = 1;    //发起删除好友的用户ID
+    string f_uid        = 2;    //删除的好友用户ID
+    string reason       = 3;    //删除好友理由
+}
+//系统类消息
+//公告消息
+message NoticeMessage{
+    string notice       = 1;    //公告内容
+}
+//强制下线消息
+message UserForcedOffline{
+    string uid          = 1;    //用户ID
+    int32 type          = 2;    //下线类型 1:账号异地登录,2:该账号被锁定,3:Token已过期,4:密码修改
+}
+//注册欢迎语
+message RegisterWelcomeMessage{
+    string content      = 1;    //注册欢迎语内容
+}
+//同步类型
+enum SynchroType{
+    UserHeader          = 0;    //更新头像
+    UserNick            = 1;    //更新昵称
+    UserUuid            = 2;    //更新ID
+    UserSex             = 3;    //更新性别
+    UserSign            = 4;    //更新签名
+    NewMsgNoticeStatus  = 5;    //全局新消息通知
+    VoiceStatus         = 6;    //全局声音提示
+    ShockStatus         = 7;    //全局震动
+    SessionTop          = 8;    //会话列表置顶
+    SessionUnTop        = 9;    //会话列表取消置顶
+    SessionDel          = 10;   //会话列表删除
+    SessionRead         = 11;   //会话列表标记为已读
+    SessionUnread       = 12;   //会话列表标记为未读
+    FriendRemarks       = 13;   //更新好友备注
+    FriendBlacklist     = 14;   //好友加入黑名单
+    GroupMemberNick     = 15;   //群内昵称修改
+}
+//性别类型
+enum SexType{
+    Secrecy             = 0;    //保密
+    Man                 = 1;    //男
+    Women               = 2;    //女
+}
+//同步消息体
+message SynchroMessage{
+    string content      = 1;    //更新的内容数据（头像、昵称、签名、好友备注、群内昵称）
+    bool status         = 2;    //状态(true:开,false:关)
+    ChatType c_type     = 3;    //会话类型(0:单聊,1:群聊)
+    string session_id   = 4;    //会话ID（好友ID、群聊ID）
+    SexType sex         = 5;    //性别
+    SynchroType synchro_type    = 6;    //同步类型
+    string ext          = 7;    //扩展字段
+}
+//用户基本信息
+message UserInfo{
+    string u_id         = 1;    //用户ID
+    string u_nick       = 2;    //用户昵称
+    string u_header     = 3;    //用户头像
+}
+//群组基本信息
+message GroupInfo{
+    int64 create_time       = 1;    //创建时间
+    string g_id             = 2;    //群id
+    int32 g_status          = 3;    //群状态-1已删除，0封禁，1正常
+    int32 max_member_count  = 4;    //群组最大人数
+    int32 msg_no_promt      = 5;    //消息免打扰0:否1：是'
+    int32 msg_top           = 6;   //消息是否置顶0：否1:是'
+    int32 is_group_chat     = 7;   //全群是否禁言0：否1：是
+    int32 is_need_verify    = 8;   //加群是否需要确认0：否1：是
+    int32 is_private_chat   = 9;   //全群是否禁止私聊0：否1：是
+}
