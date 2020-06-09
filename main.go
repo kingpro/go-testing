@@ -19,19 +19,21 @@ import (
 )
 
 var (
-	ip          = flag.String("ip", "127.0.0.1", "server IP")
+	addr        = flag.String("addr", "127.0.0.1:5280", "server addr")
 	port        = flag.String("port", "1234", "monitor server port")
+	mode        = flag.String("mode", "none", "type of message, chat、groupchat etc.")
+	interval    = flag.Int("interval", 3, "send message every interval seconds.")
 	connections = flag.Int("conn", 1, "number of tcp connections")
-	resouce     = "WEB"
+	resource    = flag.String("resource", "WEB", "resource of tcp connection")
 	idMaker     = mist.NewMist()
-	conns       sync.Map
+	chatTips    = "this is a chat message."
 )
 
 func main() {
 	fmt.Println("welcome go-testing!!!")
 	flag.Parse()
 
-	addr := *ip + ":5280"
+	addr := *addr
 	log.Printf("连接到 %s", addr)
 
 	go server.StartHttpSrv(*port)
@@ -55,7 +57,7 @@ func main() {
 			m.Write([]byte(userId))
 			password := hex.EncodeToString(m.Sum(nil))
 
-			client := NewTcpClint(conn, userId, password, resouce)
+			client := NewTcpClint(conn, userId, password, *resource)
 
 			server.Connections.Store(userId, client)
 
@@ -80,6 +82,10 @@ func main() {
 
 			server.OnlineUsers.Store(client.userId, client)
 
+			if *mode == "chat" {
+				go client.chat()
+			}
+
 			go client.send()
 			go client.recieve()
 
@@ -102,8 +108,14 @@ func (c *TcpClient) send() {
 		beatDelay.Reset(beatDuration)
 		select {
 		case message := <-c.message:
-			chatMsg := c.randomChatMsg(message)
-			pbutil.WriteDelimited(c.conn, &chatMsg)
+			var msg pb.IMMessage
+			to := idMaker.Gen()
+			if *mode == "groupchat" {
+				msg = c.randomChatMsg(message, to)
+			} else {
+				msg = c.randomChatMsg(message, to)
+			}
+			pbutil.WriteDelimited(c.conn, &msg)
 		case <-beatDelay.C:
 			pingMsg := c.pingMsg()
 			log.Printf("发送心跳包数据: %s \n", pingMsg.String())
@@ -112,6 +124,20 @@ func (c *TcpClient) send() {
 				log.Printf("发送心跳包错误: %v", err)
 				c.quit <- true
 			}
+		}
+	}
+}
+
+func (c *TcpClient) chat() {
+	chatDuration := time.Second * time.Duration(*interval)
+	chatDelay := time.NewTimer(chatDuration)
+	defer chatDelay.Stop()
+	for c.logined {
+		chatDelay.Reset(chatDuration)
+		select {
+		case <-chatDelay.C:
+			// log.Printf("send chat message>>>>[%s] \n", chatTips)
+			c.message <- chatTips
 		}
 	}
 }
@@ -133,18 +159,22 @@ func (c *TcpClient) authMsg() pb.IMMessage {
 	return msg
 }
 
-func (c *TcpClient) randomChatMsg(message string) pb.IMMessage {
+func (c *TcpClient) randomChatMsg(message string, to string) pb.IMMessage {
+	chatType := pb.ChatType_SingleChat
+	if *mode == "groupchat" {
+		chatType = pb.ChatType_GroupChat
+	}
 	chat := pb.IMChatMessage{
 		MsgId: idMaker.Gen(),
 		From:  c.userId,
 		Nick:  c.nickname,
-		To:    idMaker.Gen(),
+		To:    to,
 		Body: &pb.IMChatMessage_TextMessage{
 			TextMessage: &pb.TextMessage{
 				Content: message,
 			},
 		},
-		CType:    pb.ChatType_SingleChat,
+		CType:    chatType,
 		Icon:     c.avatar,
 		MType:    pb.MessageType_TextMessageType,
 		IsAck:    true,
@@ -228,6 +258,7 @@ func NewTcpClint(conn net.Conn, userId, password, resource string) *TcpClient {
 		userId:   userId,
 		password: password,
 		resource: resource,
+		message:  make(chan string),
 		quit:     make(chan bool),
 	}
 }
