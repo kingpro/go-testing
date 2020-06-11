@@ -1,3 +1,3 @@
 # go-testing
 
-golang tcp client ,use protobuf
+golang tcp client , use protobuf demo
