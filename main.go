@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -50,16 +51,14 @@ func main() {
 	log.Printf("连接到 %s", *addr)
 	go server.StartHttpSrv(*port)
 
-	// wg := new(sync.WaitGroup)
-	// wg.Add(*connections)
-	// for i := 0; i < *connections; i++ {
-	// 	go connect(wg)
-	// }
-	// wg.Wait()
+	wg := &sync.WaitGroup{}
+	wg.Add(*connections)
 	for i := 0; i < *connections; i++ {
-		go connect()
+		go connect(wg)
 	}
+	wg.Wait()
 
+	log.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>[go-testing]系统运行中...<<<<<<<<<<<<<<<<<<<<<<<<<<")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc,
 		os.Kill,
@@ -72,8 +71,8 @@ func main() {
 	log.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>谢谢使用[go-testing]系统,Bye-bye!<<<<<<<<<<<<<<<<<<<<<<<<<<")
 }
 
-func connect() {
-	// defer wg.Done()
+func connect(wg *sync.WaitGroup) (authed bool) {
+	defer wg.Done()
 
 	conn, err := net.DialTimeout("tcp", *addr, 10*time.Second)
 	if err != nil {
@@ -97,23 +96,27 @@ func connect() {
 	_, err = pbutil.WriteDelimited(client.conn, &msg)
 	if err != nil {
 		log.Printf("发送认证包错误: %v \n", err)
+		client.Close()
 		return
 	}
 	log.Printf("发送认证包数据: %s \n", msg.String())
 	authAck := pb.IMMessage{}
 	_, err = pbutil.ReadDelimited(client.r, &authAck)
 	if err != nil {
+		client.Close()
 		log.Printf("读取认证包错误: %v \n", err)
 		return
 	}
 	log.Printf("接收认证包响应数据: %s \n", authAck.String())
 	if authAck.GetAuthMessageAckBody() == nil {
+		client.Close()
 		log.Println("认证异常!!!")
 		return
 	}
 	if authAck.GetAuthMessageAckBody().Code == 10000 {
 		client.logined = true
 	} else {
+		client.Close()
 		log.Printf("login error code: %d, msg: %s \n", authAck.GetAuthMessageAckBody().Code,
 			authAck.GetAuthMessageAckBody().GetMessage())
 		return
@@ -134,6 +137,7 @@ func connect() {
 	// 	client.Close()
 	// 	log.Printf("用户: %s, 退出登录~~~ \n", client.userId)
 	// }
+	return true
 }
 
 func (c *TcpClient) send() {
@@ -169,6 +173,7 @@ func (c *TcpClient) send() {
 				c.quit <- true
 			}
 		case _, ok := <-c.quit:
+			log.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 			if ok {
 				c.Close()
 			}
