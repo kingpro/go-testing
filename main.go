@@ -14,9 +14,11 @@ import (
 	"go-testing/server"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"runtime"
-	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 )
 
@@ -32,7 +34,7 @@ var (
 )
 
 func main() {
-	fmt.Println("welcome go-testing!!!")
+	log.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>欢迎进入[go-testing]系统<<<<<<<<<<<<<<<<<<<<<<<<<<")
 	flag.Parse()
 
 	if *addr == "" {
@@ -48,16 +50,30 @@ func main() {
 	log.Printf("连接到 %s", *addr)
 	go server.StartHttpSrv(*port)
 
-	wg := new(sync.WaitGroup)
-	wg.Add(*connections)
+	// wg := new(sync.WaitGroup)
+	// wg.Add(*connections)
+	// for i := 0; i < *connections; i++ {
+	// 	go connect(wg)
+	// }
+	// wg.Wait()
 	for i := 0; i < *connections; i++ {
-		go connect(wg)
+		go connect()
 	}
-	wg.Wait()
+
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc,
+		os.Kill,
+		os.Interrupt,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	<-sc
+	log.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>谢谢使用[go-testing]系统,Bye-bye!<<<<<<<<<<<<<<<<<<<<<<<<<<")
 }
 
-func connect(wg *sync.WaitGroup) {
-	defer wg.Done()
+func connect() {
+	// defer wg.Done()
 
 	conn, err := net.DialTimeout("tcp", *addr, 10*time.Second)
 	if err != nil {
@@ -112,12 +128,12 @@ func connect(wg *sync.WaitGroup) {
 	go client.send()
 	go client.recieve()
 
-	select {
-	case <-client.quit:
-		server.OnlineUsers.Delete(client.userId)
-		client.Close()
-		log.Printf("用户: %s, 退出登录~~~ \n", client.userId)
-	}
+	// select {
+	// case <-client.quit:
+	// 	server.OnlineUsers.Delete(client.userId)
+	// 	client.Close()
+	// 	log.Printf("用户: %s, 退出登录~~~ \n", client.userId)
+	// }
 }
 
 func (c *TcpClient) send() {
@@ -151,6 +167,10 @@ func (c *TcpClient) send() {
 			if err != nil {
 				log.Printf("发送心跳包错误: %v", err)
 				c.quit <- true
+			}
+		case _, ok := <-c.quit:
+			if ok {
+				c.Close()
 			}
 		}
 	}
@@ -239,6 +259,11 @@ func (c *TcpClient) pingMsg() pb.IMMessage {
 }
 
 func (c *TcpClient) recieve() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("recieve recovered in f", r)
+		}
+	}()
 	for c.logined {
 		resp := pb.IMMessage{}
 		_, err := pbutil.ReadDelimited(c.r, &resp)
@@ -314,8 +339,8 @@ func (c *TcpClient) RemoteAddr() net.Addr {
 
 func (c *TcpClient) Close() error {
 	c.logined = false
-	// close(c.quit)
-	// close(c.message)
+	close(c.quit)
+	close(c.message)
 	return c.conn.Close()
 }
 
