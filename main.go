@@ -320,6 +320,7 @@ type TcpClient struct {
 	logined  bool
 	quit     chan bool
 	message  chan string
+	once     sync.Once
 	r        *bufio.Reader
 }
 
@@ -342,11 +343,13 @@ func (c *TcpClient) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
 
-func (c *TcpClient) Close() error {
-	c.logined = false
-	close(c.quit)
-	close(c.message)
-	return c.conn.Close()
+func (c *TcpClient) Close() {
+	c.once.Do(func() {
+		c.logined = false
+		close(c.quit)
+		close(c.message)
+		c.conn.Close()
+	})
 }
 
 func (c *TcpClient) Read() ([]byte, error) {
