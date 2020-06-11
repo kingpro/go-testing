@@ -116,7 +116,7 @@ func connect(wg *sync.WaitGroup) {
 	case <-client.quit:
 		server.OnlineUsers.Delete(client.userId)
 		client.Close()
-		log.Println("退出")
+		log.Printf("用户: %s, 退出登录~~~ \n", client.userId)
 	}
 }
 
@@ -127,7 +127,10 @@ func (c *TcpClient) send() {
 	for c.logined {
 		beatDelay.Reset(beatDuration)
 		select {
-		case message := <-c.message:
+		case message, ok := <-c.message:
+			if !ok {
+				continue
+			}
 			var msg pb.IMMessage
 			to := idMaker.Gen()
 			if *mode == "groupchat" {
@@ -154,6 +157,11 @@ func (c *TcpClient) send() {
 }
 
 func (c *TcpClient) chat() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("chat recovered in f", r)
+		}
+	}()
 	chatDuration := time.Second * time.Duration(*interval)
 	chatDelay := time.NewTimer(chatDuration)
 	defer chatDelay.Stop()
@@ -306,8 +314,8 @@ func (c *TcpClient) RemoteAddr() net.Addr {
 
 func (c *TcpClient) Close() error {
 	c.logined = false
-	close(c.quit)
-	close(c.message)
+	// close(c.quit)
+	// close(c.message)
 	return c.conn.Close()
 }
 
