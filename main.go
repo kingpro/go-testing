@@ -56,14 +56,14 @@ func main() {
 	wg.Wait()
 
 	log.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>[go-testing]系统运行中...<<<<<<<<<<<<<<<<<<<<<<<<<<")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc,
+
+	signal.Notify(server.SC,
 		os.Kill,
 		os.Interrupt,
 		syscall.SIGHUP,
 		syscall.SIGINT,
 		syscall.SIGTERM,
 		syscall.SIGQUIT)
-	<-sc
+	<-server.SC
 	log.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>谢谢使用[go-testing]系统,Bye-bye!<<<<<<<<<<<<<<<<<<<<<<<<<<")
 }

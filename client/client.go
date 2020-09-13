@@ -160,24 +160,24 @@ func (c *TcpClient) send() {
 	}
 }
 
-func (c *TcpClient) chat(interval int, msg string) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Println("chat recovered in f", r)
-		}
-	}()
-	chatDuration := time.Second * time.Duration(interval)
-	chatDelay := time.NewTimer(chatDuration)
-	defer chatDelay.Stop()
-	for c.logined {
-		chatDelay.Reset(chatDuration)
-		select {
-		case <-chatDelay.C:
-			// log.Printf("send chat message>>>>[%s] \n", chatTips)
-			c.message <- msg
-		}
-	}
-}
+// func (c *TcpClient) chat(interval int, msg string) {
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			log.Println("chat recovered in f", r)
+// 		}
+// 	}()
+// 	chatDuration := time.Second * time.Duration(interval)
+// 	chatDelay := time.NewTimer(chatDuration)
+// 	defer chatDelay.Stop()
+// 	for c.logined {
+// 		chatDelay.Reset(chatDuration)
+// 		select {
+// 		case <-chatDelay.C:
+// 			// log.Printf("send chat message>>>>[%s] \n", chatTips)
+// 			c.message <- msg
+// 		}
+// 	}
+// }
 
 type MsgData struct {
 	Msg string
@@ -295,7 +295,7 @@ func (c *TcpClient) recieve() {
 		_, err := pbutil.ReadDelimited(c.r, &resp)
 		if err != nil {
 			log.Printf("接收响应数据: %s \n", err)
-			c.quit <- true
+			// c.quit <- true
 			return
 		}
 		switch resp.DataType {
@@ -375,25 +375,13 @@ func Clear() {
 	test_end_time = ""
 }
 
-func (c *TcpClient) Write(message []byte) (int, error) {
-	// 读取消息的长度
-	var length = uint32(len(message))
-	var pkg = new(bytes.Buffer)
-	//写入消息头
-	err := binary.Write(pkg, binary.BigEndian, length)
-	if err != nil {
-		return 0, err
-	}
-	//写入消息体
-	err = binary.Write(pkg, binary.BigEndian, message)
-	if err != nil {
-		return 0, err
-	}
-	nn, err := c.conn.Write(pkg.Bytes())
-	if err != nil {
-		return 0, err
-	}
-	return nn, nil
+func Shutdown() {
+	Connections.Range(func(k, v interface{}) bool {
+		cli := v.(*TcpClient)
+		cli.Close()
+		Connections.Delete(k)
+		return true
+	})
 }
 
 type TcpClient struct {
@@ -425,6 +413,27 @@ func (c *TcpClient) Close() {
 		close(c.message)
 		c.conn.Close()
 	})
+}
+
+func (c *TcpClient) Write(message []byte) (int, error) {
+	// 读取消息的长度
+	var length = uint32(len(message))
+	var pkg = new(bytes.Buffer)
+	//写入消息头
+	err := binary.Write(pkg, binary.BigEndian, length)
+	if err != nil {
+		return 0, err
+	}
+	//写入消息体
+	err = binary.Write(pkg, binary.BigEndian, message)
+	if err != nil {
+		return 0, err
+	}
+	nn, err := c.conn.Write(pkg.Bytes())
+	if err != nil {
+		return 0, err
+	}
+	return nn, nil
 }
 
 func (c *TcpClient) Read() ([]byte, error) {

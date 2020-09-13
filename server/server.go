@@ -3,13 +3,14 @@ package server
 import (
 	"go-testing/client"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 var (
-	test_start_time = ""
-	send_results    = 0
+	SC = make(chan os.Signal, 1)
 )
 
 func StartHttpSrv(port string) {
@@ -70,12 +71,13 @@ func receivedResult(c *gin.Context) {
 }
 
 func shutdown(c *gin.Context) {
-	client.Connections.Range(func(k, v interface{}) bool {
-		cli := v.(*client.TcpClient)
-		cli.Close()
-		client.Connections.Delete(k)
-		return true
-	})
+	client.Shutdown()
+	var result = "Bye~ \n"
+	c.String(http.StatusOK, result)
+	go func() {
+		time.Sleep(time.Second)
+		SC <- os.Interrupt
+	}()
 }
 
 func clear(c *gin.Context) {
