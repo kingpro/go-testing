@@ -60,8 +60,7 @@ func start(c *gin.Context) {
 }
 
 func sentResult(c *gin.Context) {
-	var result string
-
+	var result = client.SentResultMsg()
 	c.String(http.StatusOK, result)
 }
 
@@ -80,7 +79,7 @@ func shutdown(c *gin.Context) {
 }
 
 func clear(c *gin.Context) {
-
+	client.Clear()
 	c.String(http.StatusOK, "CLEAR OK \n")
 }
 
