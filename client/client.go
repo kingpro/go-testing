@@ -27,12 +27,12 @@ var (
 	MessageReceivedCounter  int64
 	test_start_time               = ""
 	test_end_time                 = ""
-	delay_limit             int64 = 10 * 1000 // seconds
+	delay_limit             int64 = 10 // seconds
 	under_delay_limit_count       = 0
 	delay_count                   = 0
 	total_delay             int64 = 0
 	max_delay               int64 = 0
-	min_delay               int64 = 1
+	min_delay               int64 = 0
 	idMaker                       = mist.NewMist()
 )
 
@@ -310,7 +310,7 @@ func (c *TcpClient) recieve() {
 			log.Printf("接收消息数据: %s \n", resp.String())
 			messageReceived := resp.GetChatMessageBody()
 			if messageReceived.SendTime > 0 {
-				delay := time.Now().UnixNano()/1000 - messageReceived.SendTime
+				delay := time.Now().Unix() - messageReceived.SendTime
 				if delay > max_delay {
 					max_delay = delay
 				} else if delay > 0 && delay < min_delay {
@@ -326,7 +326,7 @@ func (c *TcpClient) recieve() {
 			}
 			c.messageAck(messageReceived.MsgId, messageReceived.SMsgId)
 			test_end_time = time.Now().Format("2006-01-02 15:04:05")
-			atomic.AddInt64(&MessageSentCounter, 1)
+			atomic.AddInt64(&MessageReceivedCounter, 1)
 		default:
 			log.Printf("接收响应包数据: %s \n", resp.String())
 		}
@@ -338,11 +338,15 @@ func ReceivedResultMsg() (result string) {
 		result += "Test is not started yet.\n"
 	} else {
 		result += "--------------------------------------\n"
-		result += fmt.Sprintf("Successfully received message: %d \n", strconv.FormatInt(MessageReceivedCounter, 10))
-		result += fmt.Sprintf("End time: %d \n", test_end_time)
-		result += fmt.Sprintf("Min delay: %d s\n", (min_delay / 1000))
-		result += fmt.Sprintf("Max delay: %d s\n", (max_delay / 1000))
-		result += fmt.Sprintf("Delay under %d seconds: %s %\n", (delay_limit / 1000), ((under_delay_limit_count / delay_count) * 100))
+		result += fmt.Sprintf("Successfully received message: %d \n", MessageReceivedCounter)
+		result += fmt.Sprintf("End time: %s \n", test_end_time)
+		result += fmt.Sprintf("Min delay: %d s\n", min_delay)
+		result += fmt.Sprintf("Max delay: %d s\n", max_delay)
+		delayRate := 0.0
+		if delay_count > 0 {
+			delayRate = float64((under_delay_limit_count / delay_count * 1.0) * 100)
+		}
+		result += fmt.Sprintf("Delay under %d seconds: %0.f %%\n", delay_limit, delayRate)
 		//result += 'Average delay: ' + (Math.floor(total_delay / delay_count) / 1000) + ' s\n';
 		result += "--------------------------------------\n"
 		//result += under_delay_limit_count + " -- " + delay_count;
