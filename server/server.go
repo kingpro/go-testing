@@ -1,17 +1,15 @@
 package server
 
 import (
+	"go-testing/client"
 	"net/http"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
 var (
-	OnlineUsers        sync.Map
-	Connections        sync.Map
-	MessageSentCounter int64
-	MessageAckCounter  int64
+	test_start_time = ""
+	send_results    = 0
 )
 
 func StartHttpSrv(port string) {
@@ -21,6 +19,10 @@ func StartHttpSrv(port string) {
 	r.Use(gin.Recovery())
 
 	r.GET("/online", online)
+	r.GET("/start", start)
+	r.GET("/sentResult", sentResult)
+	r.GET("/receivedResult", receivedResult)
+	r.GET("/shutdown", shutdown)
 
 	// port := fmt.Sprintf(":%04v", rand.New(rand.NewSource(time.Now().UnixNano())).Int31n(10000))
 
@@ -31,20 +33,55 @@ func StartHttpSrv(port string) {
 
 func online(c *gin.Context) {
 	logNum, connNum := OnlineNum()
-	c.JSON(http.StatusOK, gin.H{"conns": connNum, "authed": logNum, "sent": MessageSentCounter, "ack": MessageAckCounter})
+	c.JSON(http.StatusOK, gin.H{"conns": connNum, "authed": logNum, "sent": client.MessageSentCounter, "ack": client.MessageAckCounter})
 }
 
 func OnlineNum() (int, int) {
 	logined_length, connected_length := 0, 0
-	OnlineUsers.Range(func(k interface{}, v interface{}) bool {
+	client.OnlineUsers.Range(func(k interface{}, v interface{}) bool {
 		logined_length++
+
 		return true
 	})
-	Connections.Range(func(k interface{}, v interface{}) bool {
+	client.Connections.Range(func(k interface{}, v interface{}) bool {
 		connected_length++
 		return true
 	})
 	return logined_length, connected_length
+}
+
+func start(c *gin.Context) {
+	count := c.GetInt("count")
+	if count == 0 {
+		count = 1
+	}
+	client.SendAll(count)
+	c.String(http.StatusOK, "SEND OK\n")
+}
+
+func sentResult(c *gin.Context) {
+	var result string
+
+	c.String(http.StatusOK, result)
+}
+
+func receivedResult(c *gin.Context) {
+	var result = client.ReceivedResultMsg()
+	c.String(http.StatusOK, result)
+}
+
+func shutdown(c *gin.Context) {
+	client.Connections.Range(func(k, v interface{}) bool {
+		cli := v.(*client.TcpClient)
+		cli.Close()
+		client.Connections.Delete(k)
+		return true
+	})
+}
+
+func clear(c *gin.Context) {
+
+	c.String(http.StatusOK, "CLEAR OK \n")
 }
 
 // func monitor() {

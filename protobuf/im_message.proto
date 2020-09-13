@@ -4,7 +4,6 @@ package pb;
 
 option go_package = "../pb";
 
-
 enum DataType {
     IMAuthMessageType       = 0;    //认证消息
     IMAuthMessageAckType    = 1;    //认证回执消息
@@ -18,6 +17,7 @@ enum DataType {
 }
 
 message IMMessage {
+
     DataType data_type = 1; //消息类型
     //oneof表示多个当中有一个被赋值
     oneof dataBody {
@@ -32,6 +32,18 @@ message IMMessage {
         IMOffLineMessage offLineMessageBody         = 9;
         IMServerMessage serverMessageBody           = 10;
     }
+}
+//多条消息
+message IMChatMessageList {
+	repeated IMChatMessage iMChatMessage	= 1;//消息集合
+	repeated ToMessage to_message 			= 2;//消息详情
+	string source   						= 3;//来源信息(ANDROID/IOS/WEB/IOT/PC)
+}
+//转发消息详情
+message ToMessage {
+	ChatType chat_type	= 1; //消息类型 0：单聊消息 1：群聊消息
+	string to = 2;//接收者的ID，当消息类型为单聊消息是，该字段表示用户UID，当消息类型为群聊消息是，该字段表示群ID
+	repeated string msg_id = 3;//消息ID，由客户端生成
 }
 //用户聊天类型
 enum ChatType{
@@ -78,6 +90,7 @@ message IMChatMessageACK {
     ChatType c_type     = 4;    //聊天类型
 }
 
+   //消息内容类型
 enum MessageType {
     //基础聊天类消息
     TextMessageType     = 0;    //文本消息
@@ -91,11 +104,14 @@ enum MessageType {
     BackMessageType     = 8;    //撤回消息
     DelMessageType      = 9;    //删除消息
     AtMessageType       = 10;   //@用户消息(该消息为特殊消息，前后端一起定义)
+    CustomMessageType   = 11;   //自定义消息(该消息内容传输为JSON,消息接收使用文本类型对象解析即可)
+    StickersMessageType = 12;   //表情消息
+    HaveReadMessageType = 13; //已读消息
 }
 
 //聊天消息
 message IMChatMessage {
-
+ 
     string msg_id       = 1;    //消息ID(前端消息ID)
     string from         = 2;    //发送者(用户ID)
     string nick         = 3;    //发送者昵称
@@ -111,7 +127,10 @@ message IMChatMessage {
         CardMessage cardMessage     = 11;
         SharkUrl sharkUrl           = 12;
         BackDelMessage backDelMessage     = 13;
-        AtMessage atMessage         = 14;
+        AtMessage atMessage             = 14;
+        CustomMessage customMessage     = 15;
+        StickersMessage stickersMessage  = 26;
+        HaveReadMessage haveReadMessage  = 27;
     }
     ChatType c_type     = 16;    //聊天类型
     MessageType m_type  = 17;    //消息类型
@@ -123,6 +142,26 @@ message IMChatMessage {
     string s_msg_id     = 23;   //消息ID(服务消息ID)
     string to_source    = 24;   //发送的设备(服务端使用，前端不用传递和使用)
     string to_uid       = 25;   //发送的用户(服务端使用，前端不用传递和使用)
+}
+
+//已读消息
+message HaveReadMessage{
+    repeated string s_msg_id     = 1;    //已读的消息服务端ID集合
+    string ext          = 2;    //扩展字段
+}
+//自定义消息
+message CustomMessage{
+    string content      = 1;    //文本内容
+    int32 type          = 2;    //类型 1:群公告消息
+    string ext          = 3;    //扩展字段
+}
+//表情消息
+message StickersMessage{
+    int32 height        = 1;    //图片高度
+    int32 with          = 2;    //图片宽度
+    int64 size          = 3;    //图片大小
+    string name         = 4;    //文件名字
+    string ext          = 5;    //扩展字段
 }
 //文本消息
 message TextMessage{
@@ -197,18 +236,19 @@ message AtInfo{
     string u_nick       = 2;    //用户昵称
 }
 
-
 enum ServerMsgType {
     //系统通知类消息
     NoticeMessageType                   = 0;    //公告消息  该消息只转发给平台所有用户
     RegisterWelcomeMessageType          = 1;    //注册欢迎语 转发给刚注册的某一个人
     SynchroMessageType                  = 2;    //同步类消息
     ChatMessageType                     = 3;    //服务端代发聊天消息
+    DelMsgMessageType                   = 4;    //删除消息记录
     //好友通知类消息
     FriendInviteMessageType             = 101;   //邀请好友  该消息只转发给接收申请的用户
     FriendConfirmMessageType            = 102;   //好友确认  该消息只转发给发起申请的用户
     FriendDelMessageType                = 103;   //好友删除  该消息只转发给被删除的好友用户
     FriendSayMessageType                = 104;   //好友打招呼消息  该消息转发给好友双方
+    NullFriendMessageType               = 105;   //好友不存在 该消息转发给发送消息的用户
     //群组通知类消息
     CreateGroupMessageType              = 200;   //创建群组  该消息只转发给群主和所有邀请的群成员
     JoinReqGroupMessageType             = 201;   //进群申请  该消息体只转发给群主及群管理员
@@ -229,12 +269,19 @@ enum ServerMsgType {
     MemberNoGroupMessageType            = 216;   //用户不在群内 该消息转发给发送消息的用户
     NullGroupMessageType                = 217;   //群组不存在 该消息转发给发送消息的用户
     GroupNoChatMessageType              = 218;   //群内以开启禁言 该消息转发给发送消息的用户
+    DelGroupNoticeType                  = 219;   //删除群公告 该消息转发给在线所有成员
+    SnapchatMessageType					= 220;   //阅后即焚 该消息转发给好友双方
+    GroupSingleForbidMessageType		= 221; 	 //群组单个成员禁言 该消息转发给禁言的用户、管理员以及群主
+    MemberGroupForbidMessageType		= 222;   //该成员在群内已被禁言 该消息转发给发送消息用户
+
     //系统单人命令消息
     UserForcedOfflineType               = 500;   //强制下线消息  发送给某个用户
+    UserPcLineStatusType                = 501;   //PC端上线/下线消息 发送给某个用户
+    FriendLineStatusType                = 502;   //好友上线/下线消息    发送给所有在线的好友
 }
 
 message IMServerMessage {
- 
+
     string from         = 1;    //发送者(用户ID)
     string nick         = 2;    //发送者昵称
     string icon         = 3;    //发送者头像
@@ -257,18 +304,29 @@ message IMServerMessage {
         AdminGroupMessage adminGroupMessage             = 18;   //变更管理员 该消息只转发给在线的所有群成员
         InviteJoinRepGroupMessage inviteJoinRepGroupMessage = 19;   //邀请进群申请  该消息发送给群管理员
         InviteConfirmGroupMessage inviteConfirmGroupMessage = 20;   //邀请进群确认/邀请进群通知  该消息只转发给在线的所有群成员
-        GroupTipChatMessage groupTipChatMessage       = 21;   //用户不在群内、群组不存在、群组以开启禁言 该消息转发给发送消息的用户
+        GroupTipChatMessage groupTipChatMessage         = 21;   //用户不在群内、群组不存在、群组以开启禁言、用户在群组内被禁言 该消息转发给发送消息的用户
         //好友通知类消息
         FriendInviteMessage friendInviteMessage         = 24;   //邀请好友  该消息只转发给接收申请的用户
         FriendConfirmMessage friendConfirmMessage       = 25;   //好友确认  该消息只转发给发起申请的用户
         FriendDelMessage friendDelMessage               = 26;   //好友删除  该消息只转发给被删除的好友用户
         FriendSayMessage friendSayMessage               = 27;   //好友打招呼消息  该消息转发给好友双方
+
         //系统类消息
         NoticeMessage noticeMessage                     = 28;   //公告消息  该消息只转发给平台所有用户
         UserForcedOffline userForcedOffline             = 29;   //强制下线消息  发送给某个用户
         SynchroMessage synchroMessage                   = 30;   //同步类操作 发送给某个用户
         RegisterWelcomeMessage registerWelcomeMessage   = 31;   //注册欢迎语
         ServerChatMessage serverChatMessage             = 32;  //系统代发聊天消息
+        //后续增加的消息
+        DelGroupNotice delGroupNotice                   = 34;   //删除群公告
+        UserPcLineStatus userPcLineStatus               = 35;   //PC端上线/下线消息
+
+        DelMsgMessage delMsgMessage                     = 36;   //系统删除聊天消息
+		SnapchatMessage snapchatMessage					= 37;   //阅后即焚 该消息转发给好友双方
+		GroupSingleForbidMessage groupSingleForbidMessage  = 38; 	 //群组单个成员禁言 	该消息转发给禁言的用户
+
+        FriendMessage friendMessage                     = 39;   //好友不存在
+        FriendLineStatus friendLineStatus               = 40;   //好友在线状态消息
     }
     string to_source    = 33;   //接受者用户设备
 }
@@ -282,8 +340,41 @@ message IMChatMessageToACK {
     ChatType c_type     = 6;    //聊天类型
     string to_source    = 7;   //接受者用户设备
 }
+//群内单个成员禁言
+message GroupSingleForbidMessage{
+	string from_uid     = 1;    //发送者ID
+	string from_nick	= 2;    //发送者昵称
+	string to_uid       = 3;    //被禁言的用户UID
+	string to_nick		= 4;	//被禁言的用户昵称
+	string gid          = 5;    //群聊ID
+	int32 status      	= 6;    //是否开启禁言 0：关闭禁言 1：开启禁言
+	int64 expire_time   = 7;    //开启禁言的时间（精度为 毫秒）
+}
+//阅后即焚消息
+message SnapchatMessage{
+	string u_id         = 1;    //用户ID
+    string u_nick       = 2;    //用户昵称
+    string f_id         = 3;    //好友用户ID
+    string f_nick       = 4;    //好友用户昵称
+    int32 status      	= 5;    //是否开启阅后即焚 0：关闭阅后即焚 1：开启阅后即焚
+	int64 expire_time   = 6;    //开启阅后即焚时的时间（精度为 毫秒）
+}
+
+//系统删除聊天消息
+message DelMsgMessage{
+    string from_uid     = 1;    //发送者ID
+    string to_uid       = 2;    //接受者ID
+    ChatType c_type     = 3;    //聊天类型
+    string s_msg_id     = 4;    //消息ID
+    string ext          = 5;    //扩展字段
+}
 //聊天消息
 message ServerChatMessage{
+    enum MessageType {
+        //基础聊天类消息
+        TextMessage     = 0;    //文本消息
+        ImageMessage    = 1;    //图片消息
+    }
     string from_uid     = 1;    //发送者ID
     string from_nick    = 2;    //发送者昵称
     string from_icon    = 3;    //发送者头像
@@ -366,6 +457,8 @@ message NoticeGroupMessage{
     string nick         = 2;    //发布群公告的用户昵称
     string gid          = 3;    //群聊ID
     string notice       = 4;    //群组公告
+    string noticeId     = 5;    //群组公告ID
+    string noticeUuid   = 6;    //群组公告UUID
 }
 //变更群名称
 message NameGroupMessage{
@@ -406,9 +499,15 @@ message InviteConfirmGroupMessage{
     int32 status        = 9;    //确认状态 1:同意进群 2:拒绝进群
     int32 type          = 10;   //加群方式 1:扫码进群 2:邀请进群
 }
-//用户不在群内、群组不存在、群组以开启禁言
+//用户不在群内、群组不存在、群组以开启禁言、用户在群组内被禁言
 message GroupTipChatMessage{
     string gid          = 1;    //群组ID
+}
+//删除群公告
+message DelGroupNotice{
+    string gid          = 1;    //群组ID
+    string notice_id    = 2;    //群组公告ID
+    string reason       = 3;    //扩展字段
 }
 //好友通知类消息
 //邀请好友
@@ -450,6 +549,11 @@ message FriendDelMessage{
     string f_uid        = 2;    //删除的好友用户ID
     string reason       = 3;    //删除好友理由
 }
+//好友不存在
+message FriendMessage{
+    string f_uid        = 1;    //好友用户ID
+    string reason       = 2;    //扩展字段
+}
 //系统类消息
 //公告消息
 message NoticeMessage{
@@ -458,30 +562,46 @@ message NoticeMessage{
 //强制下线消息
 message UserForcedOffline{
     string uid          = 1;    //用户ID
-    int32 type          = 2;    //下线类型 1:账号异地登录,2:该账号被锁定,3:Token已过期,4:密码修改
+    int32 type          = 2;    //下线类型 1:账号异地登录,2:该账号被锁定,3:Token已过期,4:密码修改,5:APP要求下线
 }
 //注册欢迎语
 message RegisterWelcomeMessage{
     string content      = 1;    //注册欢迎语内容
 }
+//用户PC端上线下线
+message UserPcLineStatus{
+    string uid          = 1;    //用户ID
+    int32 status        = 2;    //用户上线或下线（1：上线 2：下线）
+    string ext          = 3;    //扩展字段
+}
+//好友在线状态消息
+message FriendLineStatus{
+    string friendId     = 1;    //好友ID
+    string userId       = 2;    //用户ID
+    int32 status        = 3;    //好友在线状态（1：在线 2：离线）
+    string source       = 4;    //好友上线下线设备
+    string ext          = 5;    //扩展字段
+}
 //同步类型
 enum SynchroType{
-    UserHeader          = 0;    //更新头像
-    UserNick            = 1;    //更新昵称
-    UserUuid            = 2;    //更新ID
-    UserSex             = 3;    //更新性别
-    UserSign            = 4;    //更新签名
-    NewMsgNoticeStatus  = 5;    //全局新消息通知
-    VoiceStatus         = 6;    //全局声音提示
-    ShockStatus         = 7;    //全局震动
-    SessionTop          = 8;    //会话列表置顶
-    SessionUnTop        = 9;    //会话列表取消置顶
-    SessionDel          = 10;   //会话列表删除
-    SessionRead         = 11;   //会话列表标记为已读
-    SessionUnread       = 12;   //会话列表标记为未读
-    FriendRemarks       = 13;   //更新好友备注
-    FriendBlacklist     = 14;   //好友加入黑名单
-    GroupMemberNick     = 15;   //群内昵称修改
+    UserHeaderType          = 0;    //更新头像
+    UserNickType            = 1;    //更新昵称
+    UserUuidType            = 2;    //更新ID
+    UserSexType             = 3;    //更新性别
+    UserSignType            = 4;    //更新签名
+    NewMsgNoticeStatusType  = 5;    //全局新消息通知
+    VoiceStatusType         = 6;    //全局声音提示
+    ShockStatusType         = 7;    //全局震动
+    SessionTopType          = 8;    //会话列表置顶
+    SessionUnTopType        = 9;    //会话列表取消置顶
+    SessionDelType          = 10;   //会话列表删除
+    SessionReadType         = 11;   //会话列表标记为已读
+    SessionUnreadType       = 12;   //会话列表标记为未读
+    FriendRemarksType       = 13;   //更新好友备注
+    FriendBlacklistType     = 14;   //好友加入黑名单
+    GroupMemberNickType     = 15;   //群内昵称修改
+    ChatMessageFreeType     = 16;   //消息免打扰
+    StickersUpdateType      = 17; //表情包改变
 }
 //性别类型
 enum SexType{
@@ -498,6 +618,7 @@ message SynchroMessage{
     SexType sex         = 5;    //性别
     SynchroType synchro_type    = 6;    //同步类型
     string ext          = 7;    //扩展字段
+    string content_ext  = 8;    //内容扩展字段（好友描述）
 }
 //用户基本信息
 message UserInfo{
