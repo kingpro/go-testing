@@ -412,6 +412,8 @@ func (c *TcpClient) Close() {
 		close(c.quit)
 		close(c.message)
 		c.conn.Close()
+		Connections.Delete(c.userId)
+		OnlineUsers.Delete(c.userId)
 	})
 }
 
