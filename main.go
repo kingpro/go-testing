@@ -48,7 +48,7 @@ func main() {
 	batch := 50
 	for i := 0; i < *connections; i++ {
 		if i > 0 && i%batch == 0 {
-			time.Sleep(time.Second)
+			time.Sleep(100 * time.Millisecond)
 		}
 		idNode, _ := strconv.Atoi(*node)
 		go client.Connect(idNode*1000000+i, wg, *addr, *resource, chatTips, *interval)

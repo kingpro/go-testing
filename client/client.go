@@ -295,7 +295,7 @@ func (c *TcpClient) recieve() {
 		_, err := pbutil.ReadDelimited(c.r, &resp)
 		if err != nil {
 			log.Printf("接收响应数据: %s \n", err)
-			// c.quit <- true
+			c.quit <- true
 			return
 		}
 		switch resp.DataType {
@@ -379,7 +379,6 @@ func Shutdown() {
 	Connections.Range(func(k, v interface{}) bool {
 		cli := v.(*TcpClient)
 		cli.Close()
-		Connections.Delete(k)
 		return true
 	})
 }
